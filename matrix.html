@@ -7,9 +7,18 @@ html, body {
 	height: 100%;
 }
 </style>
-<link href="https://fonts.googleapis.com/earlyaccess/hannari.css" rel="stylesheet" />
-<canvas id="canvas"></canvas>
+<link href="https://fonts.googleapis.com/earlyaccess/mplus1p.css" rel="stylesheet" />
+<canvas id="canvas" onclick="pause()"></canvas>
 <script>
+
+// graphics options ----------------------------------------------------------
+
+var font_name = "Mplus";
+var font_scale = 0.5;
+var font_weight = "bold";
+var font_size = 6;
+var char_width = 8;
+var char_height = 6;
 
 // utils ---------------------------------------------------------------------
 
@@ -119,14 +128,14 @@ function draw_column(col, x) {
 	var disp_y0 = clamp(col_y - col.trail_height + 1, 0, row_count - 1);
 	for (var y = disp_y; y >= disp_y0; y--) {
 		var c = col.chars[y];
-		var is_white = (y >= col_y - 2);
+		var is_white = (y >= col_y - 1);
 		var is_fade = (y < col_y - col.trail_height + col.fade_height);
 		var r = is_white ? 1 : 0;
-		var g = 1;
+		var g = is_white ? 1 : 0.6;
 		var b = r;
 		var a;
 		if (is_white) {
-			a = lerp(y, col_y - 2, col_y, 0.5, 1);
+			a = lerp(y, col_y - 1, col_y, 0.7, 1);
 		} else if (is_fade) {
 			var ay0 = col_y - col.trail_height;
 			var ay1 = col_y - col.trail_height + col.fade_height;
@@ -147,10 +156,6 @@ function draw_matrix(new_col_count, new_row_count) {
 
 // graphics ------------------------------------------------------------------
 
-var font_size = 8; // TODO: doesn't work
-var char_width = 8;
-var char_height = 7;
-
 var canvas = document.getElementById("canvas");
 var cx = canvas.getContext("2d");
 
@@ -169,9 +174,9 @@ function clear_canvas() {
 }
 
 function resize_canvas() {
-	canvas.width = document.body.clientWidth / 1.5;
-	canvas.height = document.body.clientHeight / 1.5;
-	cx.font = font_size + "px Hannari";
+	canvas.width = document.body.clientWidth * font_scale;
+	canvas.height = document.body.clientHeight * font_scale;
+	cx.font = font_weight + " " + font_size + "px " + font_name;
 }
 
 function redraw_screen() {
@@ -191,11 +196,18 @@ draw_char = function(c, x, y, r, g, b, a) { // forward decl.
 
 // main
 
+var paused = false;
+
+function pause() {
+	paused = !paused;
+}
+
 window.onresize = function(e) {
 	redraw_screen();
 };
 
 setInterval(function() {
+	if (paused) return;
 	advance_grid();
 	redraw_screen();
 }, 1 / 30 * 1000);
@@ -203,6 +215,8 @@ setInterval(function() {
 setInterval(function() {
 	shuffle_grid_chars(round(col_count / 2), 6);
 }, 1 / 5 * 1000);
+
+
 
 redraw_screen();
 
