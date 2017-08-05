@@ -67,6 +67,11 @@ function create_col(x) {
 	return col;
 }
 
+function activate_col(col) {
+	col.active = true;
+	active_cols++;
+}
+
 function inactivate_col(col) {
 	col.active = false;
 	active_cols--;
@@ -129,27 +134,39 @@ function init_col_pos_for_stop_letter(col) {
 	init_col_pos(col, 0.8, 1, 0.5, 1, 0.8, 1);
 }
 
-function init_col_stop_letter(col, c) {
+function init_col_stop_letter(col, c, fadeout_speed) {
 	col.stop_letter = c;
 	col.stop_y = round(row_count / 2);
+	col.fadeout_speed = fadeout_speed;
+	col.alpha = 1;
 }
 
 function advance_col(col) {
+
 	if (!col.active) return;
 
-	col.y += col.speed;
-
-	var fell_out = (col.y - col.trail_height > row_count);
-	if (fell_out) {
-		if (stage == 1) {
+	if (stage == 2) {
+		col.alpha -= col.fadeout_speed / 100;
+		if (col.alpha <= 0) {
 			inactivate_col(col);
 			if (active_cols == 0) {
 				init_stage_3();
 			}
-		} else if (stage == 2) {
-			//
-		} else if (stage == 3) {
-			init_col_pos_for_falling(col);
+		}
+	} else {
+
+		col.y += col.speed;
+
+		var fell_out = (col.y - col.trail_height > row_count);
+		if (fell_out) {
+			if (stage == 1) {
+				inactivate_col(col);
+				if (active_cols == 0) {
+					init_stage_2();
+				}
+			} else if (stage == 3) {
+				init_col_pos_for_falling(col);
+			}
 		}
 	}
 }
@@ -158,14 +175,14 @@ function stop_letters_start_col(s) {
 	return round((col_count - s.length) / 2);
 }
 
-function create_stop_letter_cols(s) {
+function create_stop_letter_cols(s, fos) {
 	var x0 = stop_letters_start_col(s);
 	for (var i = 0; i < s.length; i++) {
 		if (s[i] != " ") {
 			var col = create_col(x0 + i);
 			init_col_chars(col);
 			init_col_pos_for_stop_letter(col);
-			init_col_stop_letter(col, s[i]);
+			init_col_stop_letter(col, s[i], fos[i]);
 		}
 	}
 }
@@ -182,8 +199,9 @@ function init_stage_1() {
 	stage = 1;
 	reset_cols();
 	var s = "THE MATRIX";
-	var x0 = stop_letters_start_col(s);
-	create_stop_letter_cols(s);
+	var fos = [3, 2, 3, 0, 5, 2, 4, 3, 2, 4];
+	var x0 = stop_letters_start_col(s, fos);
+	create_stop_letter_cols(s, fos);
 	var n = round((col_count - s.length) / 4) - 1;
 	create_falling_cols_for_stop_letters(x0-1-n, x0-1);
 	create_falling_cols_for_stop_letters(x0+s.length, x0+s.length+n);
@@ -191,7 +209,12 @@ function init_stage_1() {
 
 function init_stage_2() {
 	stage = 2;
-	reset_cols();
+	for (var i = 0; i < cols.length; i++) {
+		var col = cols[i];
+		if (col.stop_letter) {
+			activate_col(col);
+		}
+	}
 }
 
 function init_stage_3() {
@@ -239,7 +262,7 @@ function draw_col(col) {
 		return;
 	var stopped = col.stop_y && col_y >= col.stop_y
 	if (stopped) {
-		draw_char(col.stop_letter, x, col.stop_y, 1, 1, 1, 1);
+		draw_char(col.stop_letter, x, col.stop_y, 1, 1, 1, col.alpha);
 	}
 	if (col_y - col.trail_height + 1 >= row_count)
 		return;
