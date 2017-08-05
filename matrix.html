@@ -8,13 +8,15 @@ html, body {
 }
 </style>
 <link href="https://fonts.googleapis.com/earlyaccess/mplus1p.css" rel="stylesheet" />
-<canvas id="canvas" onclick="pause()"></canvas>
+<canvas id="canvas" onclick="pause_game()"></canvas>
 <script>
 
 // graphics options ----------------------------------------------------------
 
+var screen_scale = 1;
+var screen_scale_x = 1.6;
+var screen_scale_y = 2.2;
 var font_name = "Mplus";
-var font_scale = 0.5;
 var font_weight = "bold";
 var font_size = 6;
 var char_width = 8;
@@ -38,23 +40,48 @@ function random(min, max) {
 	return Math.random() * (max - min) + min;
 }
 
-// game logic ----------------------------------------------------------------
+// app logic -----------------------------------------------------------------
 
-var cols = [];
+// stage 1: fast falling into the "THE MATRIX" text.
+// stage 2: fading out "THE MATRIX" text.
+// stage 2: normal matrix screen.
+// stage 3: fall out screen.
+var stage;
 
+// number of rows and columns, modified on window resize and on start up.
 var col_count = 0;
 var row_count = 0;
+
+// columns state: contains the list of random characters and state logic
+// for each column.
+var cols;
+var active_cols;
+
+// column constructor: create a column object for a certain x position.
+function create_col(x) {
+	var col = {};
+	cols.push(col);
+	col.x = x;
+	col.active = true;
+	active_cols++;
+	return col;
+}
+
+function inactivate_col(col) {
+	col.active = false;
+	active_cols--;
+}
+
+function reset_cols() {
+	cols = [];
+	active_cols = 0;
+}
+
+// column characters ---------------------------------------------------------
 
 function random_char() {
 	var char_code = round(random(0x30A0, 0x30FF)); // Katakana range
 	return String.fromCharCode(char_code);
-}
-
-function init_col_pos(col) {
-	col.y = random(-row_count, 0);
-	col.speed = random(0.3, 0.6);
-	col.trail_height = round(random(row_count * 1, row_count * 1.5));
-	col.fade_height = round(random(col.trail_height * 0.6, col.trail_height * 0.8));
 }
 
 function init_col_chars(col) {
@@ -72,62 +99,157 @@ function shuffle_col_chars(col, how_many) {
 	}
 }
 
-function shuffle_grid_chars(how_many_cols, how_many_chars) {
-	while(how_many_cols > 0) {
-		how_many_cols--;
-		var x = round(random(0, col_count-1));
-		shuffle_col_chars(cols[x], how_many_chars);
+function shuffle_all_chars(how_many_chars) {
+	for (var i = 0; i < cols.length; i++) {
+		shuffle_col_chars(cols[i], how_many_chars);
 	}
 }
 
-function generate_col() {
-	var col = {};
-	init_col_pos(col);
-	init_col_chars(col);
-	return col;
+// column logic --------------------------------------------------------------
+
+function init_col_pos(col,
+	min_speed,
+	max_speed,
+	min_trail_height,
+	max_trail_height,
+	min_fade_height,
+	max_fade_height,
+) {
+	col.y = random(-row_count, 0);
+	col.speed = random(min_speed, max_speed);
+	col.trail_height = round(random(row_count * min_trail_height, row_count * max_trail_height));
+	col.fade_height = round(random(col.trail_height * min_fade_height, col.trail_height * max_trail_height));
 }
 
-function generate_grid() {
-	for (var x = 0; x < col_count; x++) {
-		cols.push(generate_col());
-	}
+function init_col_pos_for_falling(col) {
+	init_col_pos(col, 0.3, 0.6, 1, 1.5, 0.6, 0.8);
+}
+
+function init_col_pos_for_stop_letter(col) {
+	init_col_pos(col, 0.8, 1, 0.5, 1, 0.8, 1);
+}
+
+function init_col_stop_letter(col, c) {
+	col.stop_letter = c;
+	col.stop_y = round(row_count / 2);
 }
 
 function advance_col(col) {
+	if (!col.active) return;
+
 	col.y += col.speed;
-	if (col.y - col.trail_height > row_count) { // out of screen
-		init_col_pos(col);
+
+	var fell_out = (col.y - col.trail_height > row_count);
+	if (fell_out) {
+		if (stage == 1) {
+			inactivate_col(col);
+			if (active_cols == 0) {
+				init_stage_3();
+			}
+		} else if (stage == 2) {
+			//
+		} else if (stage == 3) {
+			init_col_pos_for_falling(col);
+		}
 	}
 }
 
-function advance_grid() {
-	for (var x = 0; x < cols.length; x++) {
-		advance_col(cols[x]);
+function stop_letters_start_col(s) {
+	return round((col_count - s.length) / 2);
+}
+
+function create_stop_letter_cols(s) {
+	var x0 = stop_letters_start_col(s);
+	for (var i = 0; i < s.length; i++) {
+		if (s[i] != " ") {
+			var col = create_col(x0 + i);
+			init_col_chars(col);
+			init_col_pos_for_stop_letter(col);
+			init_col_stop_letter(col, s[i]);
+		}
 	}
 }
 
-function resize_grid(new_col_count, new_row_count) {
+function create_falling_cols_for_stop_letters(x1, x2) {
+	for (var x = x1; x <= x2; x++) {
+		var col = create_col(x);
+		init_col_chars(col);
+		init_col_pos_for_stop_letter(col);
+	}
+}
+
+function init_stage_1() {
+	stage = 1;
+	reset_cols();
+	var s = "THE MATRIX";
+	var x0 = stop_letters_start_col(s);
+	create_stop_letter_cols(s);
+	var n = round((col_count - s.length) / 4) - 1;
+	create_falling_cols_for_stop_letters(x0-1-n, x0-1);
+	create_falling_cols_for_stop_letters(x0+s.length, x0+s.length+n);
+}
+
+function init_stage_2() {
+	stage = 2;
+	reset_cols();
+}
+
+function init_stage_3() {
+	stage = 3;
+	reset_cols();
+	for (var x = 0; x <= col_count; x++) {
+		var col = create_col(x);
+		init_col_chars(col);
+		init_col_pos_for_falling(col);
+	}
+}
+
+
+
+function advance_game() {
+	for (var i = 0; i < cols.length; i++) {
+		advance_col(cols[i]);
+	}
+}
+
+// game logic ---------------------------------------------------------------
+
+function init_game() {
+	init_stage_1();
+}
+
+function resize_cols(new_col_count, new_row_count) {
 	var col_delta = new_col_count - col_count;
 	var row_delta = new_row_count - row_count;
 	if (col_delta || row_delta) {
 		col_count = new_col_count;
 		row_count = new_row_count;
-		generate_grid();
+		init_game();
 	}
 }
 
+// drawing -------------------------------------------------------------------
+
 var draw_char; // forward decl.
 
-function draw_column(col, x) {
+function draw_col(col) {
+	var x = col.x;
 	var col_y = round(col.y);
 	if (col_y < 0)
 		return;
+	var stopped = col.stop_y && col_y >= col.stop_y
+	if (stopped) {
+		draw_char(col.stop_letter, x, col.stop_y, 1, 1, 1, 1);
+	}
 	if (col_y - col.trail_height + 1 >= row_count)
 		return;
 	var disp_y  = clamp(col_y, 0, row_count - 1);
 	var disp_y0 = clamp(col_y - col.trail_height + 1, 0, row_count - 1);
-	for (var y = disp_y; y >= disp_y0; y--) {
+	for (var y = disp_y0; y <= disp_y; y++) {
 		var c = col.chars[y];
+		if (stopped && y >= col.stop_y) {
+			break;
+		}
 		var is_white = (y >= col_y - 1);
 		var is_fade = (y < col_y - col.trail_height + col.fade_height);
 		var r = is_white ? 1 : 0;
@@ -147,10 +269,10 @@ function draw_column(col, x) {
 	}
 }
 
-function draw_matrix(new_col_count, new_row_count) {
-	resize_grid(new_col_count, new_row_count);
-	for (var x = 0; x < cols.length; x++) {
-		draw_column(cols[x], x);
+function draw_game(new_col_count, new_row_count) {
+	resize_cols(new_col_count, new_row_count);
+	for (var i = 0; i < cols.length; i++) {
+		draw_col(cols[i]);
 	}
 }
 
@@ -159,7 +281,7 @@ function draw_matrix(new_col_count, new_row_count) {
 var canvas = document.getElementById("canvas");
 var cx = canvas.getContext("2d");
 
-function grid_size() {
+function game_size() {
 	var col_count = ceil(canvas.width / char_width);
 	var row_count = ceil(canvas.height / char_height);
 	return {
@@ -174,16 +296,19 @@ function clear_canvas() {
 }
 
 function resize_canvas() {
-	canvas.width = document.body.clientWidth * font_scale;
-	canvas.height = document.body.clientHeight * font_scale;
+	canvas.width = document.body.clientWidth / (screen_scale_x * screen_scale);
+	canvas.height = document.body.clientHeight / (screen_scale_y * screen_scale);
 	cx.font = font_weight + " " + font_size + "px " + font_name;
+	// flip horizontally
+	//cx.translate(canvas.width, 0);
+	//cx.scale(-1, 1);
 }
 
 function redraw_screen() {
 	resize_canvas();
 	clear_canvas();
-	var size = grid_size();
-	draw_matrix(size.col_count, size.row_count);
+	var size = game_size();
+	draw_game(size.col_count, size.row_count);
 }
 
 draw_char = function(c, x, y, r, g, b, a) { // forward decl.
@@ -194,11 +319,11 @@ draw_char = function(c, x, y, r, g, b, a) { // forward decl.
 	cx.fillText(c, x * char_width, (y + 1) * char_height);
 }
 
-// main
+// main ----------------------------------------------------------------------
 
 var paused = false;
 
-function pause() {
+function pause_game() {
 	paused = !paused;
 }
 
@@ -208,15 +333,13 @@ window.onresize = function(e) {
 
 setInterval(function() {
 	if (paused) return;
-	advance_grid();
+	advance_game();
 	redraw_screen();
 }, 1 / 30 * 1000);
 
 setInterval(function() {
-	shuffle_grid_chars(round(col_count / 2), 6);
+	shuffle_all_chars(6);
 }, 1 / 5 * 1000);
-
-
 
 redraw_screen();
 
