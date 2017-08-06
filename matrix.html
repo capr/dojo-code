@@ -355,16 +355,19 @@ window.onresize = function(e) {
 	redraw_screen();
 };
 
-setInterval(function() {
-	if (paused) return;
-	advance_game();
+window.onload = function(e) {
+	setInterval(function() {
+		if (paused) return;
+		advance_game();
+		redraw_screen();
+	}, 1 / 30 * 1000);
+
+	setInterval(function() {
+		shuffle_all_chars(6);
+	}, 1 / 5 * 1000);
+
 	redraw_screen();
-}, 1 / 30 * 1000);
+};
 
-setInterval(function() {
-	shuffle_all_chars(6);
-}, 1 / 5 * 1000);
-
-redraw_screen();
 
 </script>
