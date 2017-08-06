@@ -1,3 +1,5 @@
+<html>
+<body>
 <style>
 html, body {
 	margin: 0;
@@ -147,7 +149,7 @@ function advance_col(col) {
 	if (!col.active) return;
 
 	if (stage == 2) {
-		col.alpha -= col.fadeout_speed / 100;
+		col.alpha -= col.fadeout_speed / 100 / col.alpha;
 		if (col.alpha <= 0) {
 			inactivate_col(col);
 			if (active_cols == 0) {
@@ -200,7 +202,7 @@ function init_stage_1() {
 	stage = 1;
 	reset_cols();
 	var s = "THE MATRIX";
-	var fos = [3, 2, 3, 0, 5, 2, 4, 3, 2, 4];
+	var fos = [3, 1, 2, 4, 1, 4, 1, 2, 4, 2];
 	var x0 = stop_letters_start_col(s, fos);
 	create_stop_letter_cols(s, fos);
 	var n = round((col_count - s.length) / 4) - 1;
@@ -228,7 +230,9 @@ function init_stage_3() {
 	}
 }
 
-
+function init_stage_4() {
+	stage = 4;
+}
 
 function advance_game() {
 	for (var i = 0; i < cols.length; i++) {
@@ -351,6 +355,18 @@ function pause_game() {
 	paused = !paused;
 }
 
+function exit_game() {
+	if (stage == 3) {
+		init_stage_4();
+	}
+}
+
+document.onkeydown = function(e) {
+	if (e.key == "Escape") {
+		exit_game();
+	}
+}
+
 window.onresize = function(e) {
 	redraw_screen();
 };
@@ -369,5 +385,6 @@ window.onload = function(e) {
 	redraw_screen();
 };
 
-
 </script>
+</body>
+</html>
