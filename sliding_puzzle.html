@@ -1,0 +1,323 @@
+<table width=100% height=100%>
+	<tr>
+		<td valign=center align=center>
+			<canvas id="canvas"></canvas>
+		</td>
+	</tr>
+</table>
+<script>
+/*
+
+			   IF DO   | Sliding Tiles Puzzle Game
+			 THEN JO   | (c) 2017 Cosmin Apreutesei
+*/
+
+// game math -----------------------------------------------------------------
+
+// Not all initial puzzle configurations are solvable, see:
+//    http://www.geeksforgeeks.org/check-instance-15-puzzle-solvable/
+
+var N = 4;
+var N2 = N*N;
+var shuffle_count = 40;
+
+// generate N^2 sequential numbers from 0 to N^2-1.
+function gen_sequence() {
+	var a = [];
+	for (var i = 0; i < N2; i++) {
+		a.push(i);
+	}
+	return a;
+}
+
+// return a random integer number between 0 and N^2-1 inclusively.
+function random_pos() {
+	return Math.round(Math.random() * (N2-1));
+}
+
+// swap random pairs of numbers together multiple times
+// until the whole array is properly shuffled.
+function shuffle_sequence(a) {
+	for (var i = 1; i < shuffle_count; i++) {
+		var i1 = random_pos();
+		var i2 = random_pos();
+		var n = a[i1];
+		a[i1] = a[i2];
+		a[i2] = n;
+	}
+}
+
+// check that the shuffled sequence is not the end-game state.
+function is_end_game(a) {
+	// check that the last position is not zero.
+	if (a[N2-1]) {
+		return false;
+	}
+	// check that the 0..N^2-2 positions are not the sequence 1..N^2-1.
+	for (var i = 0; i < N2-1; i++) {
+		if (a[i] != i+1) {
+			return false;
+		}
+	}
+	return true;
+}
+
+// return the inversion count for a shuffled sequence.
+function inversion_count(a) {
+	var n = 0;
+	for (var i = 0; i < a.length; i++) {
+		for (var j = i + 1; j < a.length; j++) {
+			if (a[i] && a[j] && a[i] > a[j]) {
+				n++;
+			}
+		}
+	}
+	return n;
+}
+
+// return the row where the "zero" tile is, counting from bottom.
+function zero_row(a) {
+	return N - Math.floor(a.indexOf(0) / N);
+}
+
+// check if the array is solvable by comparing the evenness of the zero
+// row to the evenness of the number of inversions.
+function solvable(a) {
+	var even_row = zero_row(a) % 2 == 0;
+	var even_inv = inversion_count(a) % 2 == 0;
+	return even_row != even_inv;
+}
+
+/*
+// inspecting the solvability functions on a sample array.
+var a = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 14, 0];
+console.log(a);
+console.log(is_end_game(a));
+console.log(zero_row(a));
+console.log(inversion_count(a));
+console.log(solvable(a));
+*/
+
+// generate an array of 16 unique random numbers between 0 and N^2-1
+// which are not the end-game position and which constitute a solvable puzzle.
+function gen_numbers() {
+	var a;
+	do {
+		a = gen_sequence();
+		shuffle_sequence(a);
+	} while(is_end_game(a) || !solvable(a));
+	return a;
+}
+
+// game logic ----------------------------------------------------------------
+
+var finished; // true if the game was finished.
+var tiles; // a 4x4 array containing numbers from 0 to 15.
+var zx, zy; // the coordinates of the empty (aka "zero") tile.
+
+function init_game() {
+
+	var a = gen_numbers();
+
+	// generate the tiles array.
+	tiles = [];
+	var i = 0;
+	for (var y = 0; y < 4; y++) {
+		var line = [];
+		tiles.push(line);
+		for (var x = 0; x < 4; x++) {
+			var n = a[i];
+			line.push(n);
+			i++;
+			if (!n) {
+				zx = x;
+				zy = y;
+			}
+		}
+	}
+
+	finished = false;
+}
+
+// check if all the tiles are in order.
+function check_finished() {
+	var i = 1;
+	for (var y = 0; y < 4; y++) {
+		for (var x = 0; x < 4; x++) {
+			var n = tiles[y][x];
+			if (n && n != i) {
+				return false;
+			}
+			i++;
+		}
+	}
+	return true;
+}
+
+// swap a specific tile with the empty tile and make that the empty tile.
+function swap_tile(mx, my) {
+	var n = tiles[my][mx];
+	tiles[my][mx] = tiles[zy][zx];
+	tiles[zy][zx] = n;
+	zx = mx;
+	zy = my;
+
+	if (check_finished()) {
+		finished = true;
+	}
+}
+
+// tile movement logic -------------------------------------------------------
+
+var moving_speed = 1/4; // distance per frame
+var mx0, my0; // the initial coordinates of the moving tile.
+var mx, my; // the in-transit coordinates of the moving tile.
+var moving = false;
+
+function start_moving_tile(dx, dy) {
+	mx0 = zx + dx;
+	my0 = zy + dy;
+	mx = mx0;
+	my = my0;
+	moving = true;
+}
+
+function finish_moving_tile() {
+	moving = false;
+	swap_tile(mx0, my0);
+}
+
+function continue_moving_tile() {
+	var dx = Math.min(Math.abs(zx - mx), moving_speed);
+	var dy = Math.min(Math.abs(zy - my), moving_speed);
+
+	if (dx == 0 && dy == 0) {
+		finish_moving_tile();
+	} else {
+		var sx = Math.sign(zx - mx);
+		var sy = Math.sign(zy - my);
+		mx = mx + dx * sx;
+		my = my + dy * sy;
+	}
+}
+
+function advance_game(key) {
+	if (finished) {
+		init_game();
+		return;
+	}
+	if (moving) {
+		finish_moving_tile();
+		if (finished) {
+			return;
+		}
+	}
+	if (key == "ArrowDown" && zy > 0) {
+		start_moving_tile(0, -1);
+	} else if (key == "ArrowUp" && zy < 3) {
+		start_moving_tile(0, 1);
+	} else if (key == "ArrowRight" && zx > 0) {
+		start_moving_tile(-1, 0);
+	} else if (key == "ArrowLeft" && zx < 3) {
+		start_moving_tile(1, 0);
+	}
+}
+
+// graphics ------------------------------------------------------------------
+
+var tile_height = 40;
+var tile_font = "30px Arial";
+var text_adj_x = 19;
+var text_adj_y = 30;
+
+var canvas = document.getElementById("canvas");
+canvas.width = tile_height * 4 - 1;
+canvas.height = canvas.width;
+var ctx = canvas.getContext("2d");
+
+function clear_canvas() {
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+function draw_tile(x, y) {
+
+	var n = tiles[y][x];
+
+	// skip the empty tile.
+	if (!n) {
+		return;
+	}
+
+	// adjust the tile coordinates if it's currently in movement.
+	if (moving && x == mx0 && y == my0) {
+		x = mx;
+		y = my;
+	}
+
+	ctx.fillStyle = "#000000";
+	ctx.lineWidth = 2;
+	ctx.font = tile_font;
+	ctx.beginPath();
+	var h = tile_height;
+	var tw = ctx.measureText(n).width;
+	ctx.fillText(n, x * h - tw/2 + text_adj_x, y * h + text_adj_y);
+	ctx.rect(x * h + 1, y * h + 1, h-3, h-3);
+	ctx.stroke();
+}
+
+function draw_tiles() {
+	for (var y = 0; y < 4; y++) {
+		for (var x = 0; x < 4; x++) {
+			draw_tile(x, y);
+		}
+	}
+}
+
+function center(w, w1) {
+	return (w1 - w) / 2;
+}
+
+function draw_finished() {
+	var s = "FINISHED";
+	var tw = ctx.measureText(s).width;
+	var th = tile_height;
+	var bw = tile_height * 4 - 1;
+	var bh = tile_height;
+	var w = tile_height * 4 - 1;
+	var h = w;
+	ctx.beginPath();
+	ctx.fillStyle="#000000";
+	ctx.rect(center(bw, w), center(bh, h), bw, bh);
+	ctx.fill();
+	ctx.fillStyle="#ffffff";
+	ctx.font = tile_font;
+	ctx.fillText(s, center(tw, w), center(th, h) + text_adj_y);
+}
+
+function draw_game() {
+	clear_canvas();
+	draw_tiles();
+	if (finished) {
+		draw_finished();
+	}
+}
+
+init_game();
+draw_game();
+
+function key_down(e) {
+	advance_game(e.code);
+	draw_game();
+}
+
+function each_frame() {
+	if (moving) {
+		continue_moving_tile();
+		draw_game();
+	}
+}
+
+addEventListener('keydown', key_down);
+setInterval(each_frame, 1/60 * 1000);
+
+</script>
