@@ -2,7 +2,10 @@
 <table width=100% height=100%>
 	<tr>
 		<td valign=center align=center>
-			<canvas id="canvas"></canvas>
+			<canvas id="canvas"
+				onmousemove="mouse_move(event)"
+				onmousedown="mouse_down(event)"
+			></canvas>
 		</td>
 	</tr>
 </table>
@@ -123,10 +126,10 @@ function init_game() {
 	// generate the tiles array.
 	tiles = [];
 	var i = 0;
-	for (var y = 0; y < 4; y++) {
+	for (var y = 0; y < N; y++) {
 		var line = [];
 		tiles.push(line);
-		for (var x = 0; x < 4; x++) {
+		for (var x = 0; x < N; x++) {
 			var n = a[i];
 			line.push(n);
 			i++;
@@ -143,8 +146,8 @@ function init_game() {
 // check if all the tiles are in order.
 function check_finished() {
 	var i = 1;
-	for (var y = 0; y < 4; y++) {
-		for (var x = 0; x < 4; x++) {
+	for (var y = 0; y < tiles.length; y++) {
+		for (var x = 0; x < tiles[y].length; x++) {
 			var n = tiles[y][x];
 			if (n && n != i) {
 				return false;
@@ -168,16 +171,32 @@ function swap_tile(mx, my) {
 	}
 }
 
-// tile movement logic -------------------------------------------------------
+var draw_game; // forward decl.
+
+// tile animation-based movement ---------------------------------------------
 
 var moving_speed = 1/4; // distance per frame
+var moving = false;
 var mx0, my0; // the initial coordinates of the moving tile.
 var mx, my; // the in-transit coordinates of the moving tile.
-var moving = false;
 
-function start_moving_tile(dx, dy) {
-	mx0 = zx + dx;
-	my0 = zy + dy;
+function is_movable(x, y) {
+	// check that the tile is within bounds.
+	if (x < 0 || x >= N || y < 0 || y >= N) {
+		return;
+	}
+	// check that the Manhattan distance to the empty tile is exactly 1.
+	var dx = Math.abs(zx - x);
+	var dy = Math.abs(zy - y);
+	return dx + dy == 1
+}
+
+function start_moving_tile(x, y) {
+	if (!is_movable(x, y)) {
+		return;
+	}
+	mx0 = x;
+	my0 = y;
 	mx = mx0;
 	my = my0;
 	moving = true;
@@ -202,6 +221,17 @@ function continue_moving_tile() {
 	}
 }
 
+function each_frame() {
+	if (moving) {
+		continue_moving_tile();
+		draw_game();
+	}
+}
+
+setInterval(each_frame, 1/60 * 1000);
+
+// keyboard-based tile movement logic ----------------------------------------
+
 function advance_game(key) {
 	if (finished) {
 		init_game();
@@ -213,15 +243,43 @@ function advance_game(key) {
 			return;
 		}
 	}
-	if (key == "ArrowDown" && zy > 0) {
-		start_moving_tile(0, -1);
-	} else if (key == "ArrowUp" && zy < 3) {
-		start_moving_tile(0, 1);
-	} else if (key == "ArrowRight" && zx > 0) {
-		start_moving_tile(-1, 0);
-	} else if (key == "ArrowLeft" && zx < 3) {
-		start_moving_tile(1, 0);
+	if (key == "ArrowDown") {
+		start_moving_tile(zx, zy-1);
+	} else if (key == "ArrowUp") {
+		start_moving_tile(zx, zy+1);
+	} else if (key == "ArrowRight") {
+		start_moving_tile(zx-1, zy);
+	} else if (key == "ArrowLeft") {
+		start_moving_tile(zx+1, zy);
 	}
+}
+
+function key_down(e) {
+	advance_game(e.code);
+	draw_game();
+}
+
+addEventListener('keydown', key_down);
+
+// mouse-based tile-movement logic -------------------------------------------
+
+function hit_test(mx, my) {
+	var x = Math.floor(mx / tile_height);
+	var y = Math.floor(my / tile_height);
+	return {"x": x, "y": y};
+}
+
+var tile_hit;
+
+function mouse_move(e) {
+	tile_hit = hit_test(e.offsetX, e.offsetY);
+	draw_game();
+}
+
+function mouse_down(e) {
+	tile_hit = hit_test(e.offsetX, e.offsetY);
+	start_moving_tile(tile_hit.x, tile_hit.y);
+	draw_game();
 }
 
 // graphics ------------------------------------------------------------------
@@ -249,21 +307,29 @@ function draw_tile(x, y) {
 		return;
 	}
 
+	var highlight =
+		tile_hit &&
+		tile_hit.x == x &&
+		tile_hit.y == y &&
+		is_movable(tile_hit.x, tile_hit.y);
+
 	// adjust the tile coordinates if it's currently in movement.
 	if (moving && x == mx0 && y == my0) {
 		x = mx;
 		y = my;
 	}
 
-	ctx.fillStyle = "#000000";
 	ctx.lineWidth = 2;
 	ctx.font = tile_font;
-	ctx.beginPath();
 	var h = tile_height;
 	var tw = ctx.measureText(n).width;
-	ctx.fillText(n, x * h - tw/2 + text_adj_x, y * h + text_adj_y);
+	ctx.beginPath();
 	ctx.rect(x * h + 1, y * h + 1, h-3, h-3);
+	ctx.fillStyle = highlight ? "#dddddd" : "#ffffff";
+	ctx.fill();
 	ctx.stroke();
+	ctx.fillStyle = "#000000";
+	ctx.fillText(n, x * h - tw/2 + text_adj_x, y * h + text_adj_y);
 }
 
 function draw_tiles() {
@@ -295,7 +361,7 @@ function draw_finished() {
 	ctx.fillText(s, center(tw, w), center(th, h) + text_adj_y);
 }
 
-function draw_game() {
+draw_game = function() { // fw. declared
 	clear_canvas();
 	draw_tiles();
 	if (finished) {
@@ -303,22 +369,9 @@ function draw_game() {
 	}
 }
 
+// init ----------------------------------------------------------------------
+
 init_game();
 draw_game();
-
-function key_down(e) {
-	advance_game(e.code);
-	draw_game();
-}
-
-function each_frame() {
-	if (moving) {
-		continue_moving_tile();
-		draw_game();
-	}
-}
-
-addEventListener('keydown', key_down);
-setInterval(each_frame, 1/60 * 1000);
 
 </script>
