@@ -179,6 +179,11 @@ function swap_tile(mx, my) {
 
 var draw_game; // forward decl.
 
+function restart_game() {
+	init_game();
+	draw_game();
+}
+
 // tile animation-based movement ---------------------------------------------
 
 var moving_speed = 1/4; // distance per frame
@@ -240,7 +245,7 @@ setInterval(each_frame, 1/60 * 1000);
 
 function advance_game(key) {
 	if (finished) {
-		init_game();
+		restart_game();
 		return;
 	}
 	if (moving) {
@@ -278,11 +283,18 @@ function hit_test(mx, my) {
 var tile_hit;
 
 function mouse_move(e) {
+	if (finished) {
+		return;
+	}
 	tile_hit = hit_test(e.offsetX, e.offsetY);
 	draw_game();
 }
 
 function mouse_down(e) {
+	if (finished) {
+		restart_game();
+		return;
+	}
 	tile_hit = hit_test(e.offsetX, e.offsetY);
 	start_moving_tile(tile_hit.x, tile_hit.y);
 	draw_game();
@@ -377,7 +389,6 @@ draw_game = function() { // fw. declared
 
 // init ----------------------------------------------------------------------
 
-init_game();
-draw_game();
+restart_game();
 
 </script>
