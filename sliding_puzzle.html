@@ -87,14 +87,20 @@ function zero_row(a) {
 // check if the array is solvable by comparing the evenness of the zero
 // row to the evenness of the number of inversions.
 function solvable(a) {
-	var even_row = zero_row(a) % 2 == 0;
-	var even_inv = inversion_count(a) % 2 == 0;
-	return even_row != even_inv;
+	if (N % 2 != 0) {
+		return inversion_count(a) % 2 == 0;
+	} else {
+		var even_row = zero_row(a) % 2 == 0;
+		var even_inv = inversion_count(a) % 2 == 0;
+		return even_row != even_inv;
+	}
 }
 
 /*
-// inspecting the solvability functions on a sample array.
-var a = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 14, 0];
+// inspecting the solvability functions on a sample 3x3 array.
+N = 3;
+N2 = N*N;
+var a = [1, 6, 7, 8, 0, 3, 2, 4, 5];
 console.log(a);
 console.log(is_end_game(a));
 console.log(zero_row(a));
@@ -290,7 +296,7 @@ var text_adj_x = 19;
 var text_adj_y = 30;
 
 var canvas = document.getElementById("canvas");
-canvas.width = tile_height * 4 - 1;
+canvas.width = tile_height * N - 1;
 canvas.height = canvas.width;
 var ctx = canvas.getContext("2d");
 
@@ -333,8 +339,8 @@ function draw_tile(x, y) {
 }
 
 function draw_tiles() {
-	for (var y = 0; y < 4; y++) {
-		for (var x = 0; x < 4; x++) {
+	for (var y = 0; y < tiles.length; y++) {
+		for (var x = 0; x < tiles[y].length; x++) {
 			draw_tile(x, y);
 		}
 	}
@@ -348,9 +354,9 @@ function draw_finished() {
 	var s = "FINISHED";
 	var tw = ctx.measureText(s).width;
 	var th = tile_height;
-	var bw = tile_height * 4 - 1;
+	var bw = tile_height * N - 1;
 	var bh = tile_height;
-	var w = tile_height * 4 - 1;
+	var w = tile_height * N - 1;
 	var h = w;
 	ctx.beginPath();
 	ctx.fillStyle="#000000";
