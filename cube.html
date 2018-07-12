@@ -1,0 +1,96 @@
+<canvas id="canvas" width=400 height=400 onclick="pause_game()"></canvas>
+<script>
+
+function p3(x, y, z) {
+	return {"x": x, "y": y, "z": z}
+}
+
+function project_p3(p) {
+	var x = p.x / p.z;
+	var y = p.y / p.z;
+	return {"x": x, "y": y}
+}
+
+function scale_p3(p, s) {
+	return p3(p.x * s, p.y * s, p.z * s);
+}
+
+function translate_p3(p, x, y, z) {
+	return p3(p.x + x, p.y + y, p.z + z);
+}
+
+function rotate_p3(p) {
+
+}
+
+var cube = [
+	// front face
+	p3(0, 0, 0),
+	p3(1, 0, 0),
+	p3(1, 1, 0),
+	p3(0, 1, 0),
+	// back face
+	p3(0, 0, 1),
+	p3(1, 0, 1),
+	p3(1, 1, 1),
+	p3(0, 1, 1)
+];
+
+var canvas = document.getElementById("canvas");
+var ctx = canvas.getContext("2d");
+
+var speed = 1; // radians per frame
+
+function rotate_cube() {
+	for (var i = 0; i < cube.length; i++) {
+		cube[i] = rotate_p3(cube[i], speed);
+	}
+}
+
+function clear_canvas() {
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+function draw_line(p1, p2) {
+	ctx.beginPath();
+	ctx.moveTo(p1.x, p1.y);
+	ctx.lineTo(p2.x, p2.y);
+	ctx.stroke();
+}
+
+function draw_cube_line(i1, i2) {
+	var p1 = project_p3(scale_p3(translate_p3(cube[i1], 10, 10, 1), 100));
+	var p2 = project_p3(scale_p3(translate_p3(cube[i2], 10, 10, 1), 100));
+	console.log(i1, i2, p1, p2);
+	draw_line(p1, p2);
+}
+
+function draw_cube() {
+	// front face
+	draw_cube_line(0, 1);
+	draw_cube_line(1, 2);
+	draw_cube_line(2, 3);
+	draw_cube_line(3, 4);
+	// back face
+	draw_cube_line(4, 5);
+	draw_cube_line(5, 6);
+	draw_cube_line(6, 7);
+	draw_cube_line(7, 4);
+	// sides
+	draw_cube_line(0, 4);
+	draw_cube_line(1, 5);
+	draw_cube_line(2, 6);
+	draw_cube_line(3, 7);
+}
+
+setInterval(function() {
+	return;
+	rotate_cube();
+	clear_canvas();
+	draw_cube();
+}, 1 / 30 * 1000);
+
+draw_cube();
+
+
+</script>
